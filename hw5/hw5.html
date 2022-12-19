@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MagazineStudy HW5</title>
+    <style>
+        #info {
+            position: absolute;
+            top: 0px;
+            width: 100%;
+            padding: 10px;
+            text-align: center;
+            color: #4DFFFF
+        }
+
+        body {
+            overflow: hidden;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="info">I3B54 d-drive
+        <br>
+        <button id='switch'>using ORBIT
+        </button>
+    </div>
+    <script src="https://threejs.org/build/three.min.js"></script>
+    <script src="https://code.jquery.com/jquery-2.1.4.min.js"></script>
+    <script src="https://threejs.org/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://jyunming-chen.github.io/tutsplus/js/KeyboardState.js"></script>
+    <script type="module">
+        import { MTLLoader } from 'https://cdn.skypack.dev/three@0.136/examples/jsm/loaders/MTLLoader.js';
+        import { OBJLoader } from 'https://cdn.skypack.dev/three@0.136/examples/jsm/loaders/OBJLoader.js';
+        var camera, scene, renderer;
+        var keyboard = new KeyboardState();
+        var clock;
+
+        var car;
+        var pos = new THREE.Vector3();
+        var vel = new THREE.Vector3();
+        var force = new THREE.Vector3();
+        var power, angle;
+        var camera3rd, use3rd = false;
+
+        var cameraHelper;
+        var light;
+
+
+        (function () {
+            Math.clamp = function (val, min, max) {
+                return Math.min(Math.max(val, min), max);
+
+            }
+        })();
+
+        $('#switch').click(function () {
+            use3rd = !use3rd;
+            if (use3rd) $('#switch').text('using THIRD')
+            else $('#switch').text('using ORBIT')
+        })
+
+
+        init();
+        animate();
+
+        function readModel(modelName, targetSize = 40) {
+            var onProgress = function (xhr) {
+                if (xhr.lengthComputable) {
+                    var percentComplete = xhr.loaded / xhr.total * 100;
+                    console.log(Math.round(percentComplete, 2) + '%downloaded');
+                }
+            };
+            var onError = function (xhr) { };
+            var mtlLoader = new MTLLoader();
+            mtlLoader.setPath('models/');
+            mtlLoader.load(modelName + '.mtl', function (materials) {
+                materials.preload();
+    
+                var objLoader = new OBJLoader();
+                objLoader.setMaterials(materials);
+                objLoader.setPath('models/');
+                objLoader.load(modelName + '.obj', function (object) {
+                    
+                    var c = unitize(object, targetSize);
+                    c.name = 'OBJ';
+                    c.position.y = 7.4;
+                    
+                    car = new THREE.Object3D();
+                    car.add(c);    
+                           
+                    scene.add(car);
+
+                }, onProgress, onError);
+
+            });
+        }
+        function unitize(object, targetSize) {
+            var box3 = new THREE.Box3();
+            box3.setFromObject(object);
+            var size = new THREE.Vector3();
+            size.subVectors(box3.max, box3.min);
+            var center = new THREE.Vector3();
+            center.addVectors(box3.max, box3.min).multiplyScalar(0.5);
+
+            var objSize = Math.max(size.x, size.y, size.z);
+            var scaleSet = targetSize / objSize;
+
+            var theObject = new THREE.Object3D();
+            theObject.add(object);
+            object.scale.set(scaleSet, scaleSet, scaleSet);
+            object.position.set(-center.x * scaleSet, -center.y * scaleSet, -center.z * scaleSet);
+
+            return theObject;
+        }
+
+        function init() {
+
+            clock = new THREE.Clock();
+            scene = new THREE.Scene();
+
+            camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 1, 1000);
+            camera.position.set(0, 500, 250);
+            scene.add(camera);
+            //creats camera3rd
+            camera3rd = new THREE.PerspectiveCamera(80, window.innerWidth / window.innerHeight, 1, 1000);
+
+            //floor
+            var floor = new THREE.Mesh(new THREE.PlaneGeometry(500, 500, 130, 130),
+                new THREE.MeshLambertMaterial());
+            floor.rotation.x = -Math.PI / 2;
+            scene.add(floor);
+
+
+            renderer = new THREE.WebGLRenderer();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setClearColor(0x888888);
+
+            var controls = new THREE.OrbitControls(camera, renderer.domElement);
+
+            // disable OrbitControl keys
+            controls.enableKeys = false;
+
+            document.body.appendChild(renderer.domElement);
+
+            power = 5.0;
+            angle = 0.0;
+            readModel('carModel');
+
+            car = new THREE.Object3D();
+            scene.add(car);
+
+            cameraHelper = makeCameraHelper();
+            scene.add(cameraHelper);
+
+            /////////////////////////////////////////////////////////////////////////
+
+            // spotlight
+            light = new THREE.SpotLight(0xffffff, 1);
+            light.angle = 0.86; // alpha;
+            light.penumbra = 0.613;
+            light.rotation.x = Math.PI / 6; // wont affect the light ...
+            light.position.y = 50;
+            light.target = car; // does not change ligth matrix ...
+            scene.add(light);
+
+            scene.add(new THREE.AmbientLight(0x440000)); // soft red ambient
+
+            //lighthelper
+            const spotLightHelper = new THREE.SpotLightHelper(light);
+            scene.add(spotLightHelper);
+
+
+            ////////////////////////////////////////////////////////////////////////
+        }
+
+        function update(dt) {
+
+            keyboard.update();
+
+            if (vel.length() > 0) {
+                angle = 1.5 * Math.PI + Math.atan2(vel.x, vel.z);
+            }
+
+            if (keyboard.pressed("space"))
+                power = 0.1;
+            if (keyboard.pressed("up"))
+                power *= 1.2;
+            if (keyboard.pressed("down"))
+                power /= 1.2;
+
+            power = Math.clamp(power, 0, 80.0);
+
+
+            var angle_thrust = angle;
+            if (keyboard.pressed("left"))
+                angle_thrust += 0.3;
+            if (keyboard.pressed("right"))
+                angle_thrust -= 0.3;
+
+            // compute force
+            var thrust = new THREE.Vector3(1, 0, 0).multiplyScalar(power).applyAxisAngle(new THREE.Vector3(0, 1, 0),
+                angle_thrust);
+            force.copy(thrust);
+            force.add(vel.clone().multiplyScalar(-2))
+
+            // eulers
+            vel.add(force.clone().multiplyScalar(dt));
+            pos.add(vel.clone().multiplyScalar(dt));
+        }
+
+        function makeCameraHelper() {
+            var cameraModel = new THREE.Group();
+            var body = new THREE.Mesh(new THREE.BoxGeometry(5, 6, 3), new THREE.MeshNormalMaterial());
+            cameraModel.add(body);
+
+            return cameraModel;
+        }
+
+
+        function animate() {
+
+            requestAnimationFrame(animate);
+
+            var dt = clock.getDelta();
+            update(dt);
+
+            // car update
+            car.position.copy(pos);
+            car.rotation.y = angle + Math.PI / 2;
+
+            light.target = car;
+
+            //light.position.set(car.position.x, 50 , car.position.z);
+
+            var thirdPos = car.localToWorld(new THREE.Vector3(0, 50, -30));
+            var thirdAt = car.localToWorld(new THREE.Vector3(0, 0, 30));
+            camera3rd.position.copy(thirdPos);
+            camera3rd.lookAt(thirdAt);
+
+            cameraHelper.position.copy(camera3rd.position);
+            cameraHelper.quaternion.copy(camera3rd.quaternion);
+
+            if (use3rd)
+                renderer.render(scene, camera3rd);
+            else
+                renderer.render(scene, camera);
+
+        }
+    </script>
+
+</body >
+
+</html >

@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>2D sprite character game</title>
+</head>
+<style>
+    #info {
+        position: absolute;
+        top: 0px;
+        width: 100%;
+        padding: 10px;
+        text-align: center;
+        color: #008844
+    }
+
+    body {
+        overflow: hidden;
+    }
+</style>
+<div id="info">2D sprite character game
+    <br>|LEFT & RIGHT to move | UP to attack | DOWN to sleep|
+</div>
+<script src="https://threejs.org/build/three.min.js"></script>
+<script src="https://threejs.org/examples/js/controls/OrbitControls.js">
+</script>
+<script src="https://jyunming-chen.github.io/tutsplus/js/KeyboardState.js"></script>
+
+<script src="https://code.jquery.com/jquery-2.1.4.min.js"></script>
+
+
+<body>
+    <script>
+        var keyboard = new KeyboardState();
+        var camera, scene, renderer, power, ch, bd, en, sleep = false,
+            attack = false;
+        var bdmove = 0, //背景左右移動
+            rot_y = true; //控制轉向
+        var textureCh, texture, textureEn;
+        var w = window.innerWidth;
+        init();
+        animate();
+
+        function init() {
+            clock = new THREE.Clock();
+            renderer = new THREE.WebGLRenderer({
+                antialias: true
+            });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            document.body.appendChild(renderer.domElement);
+
+            scene = new THREE.Scene();
+            camera = new THREE.OrthographicCamera(-window.innerWidth / 2, window.innerWidth / 2, window.innerHeight / 2, -window.innerHeight / 2, -10, 100);
+            camera.position.z = 10;
+            window.addEventListener('resize', onWindowResize, false);
+
+            /////////////////////////////////////////////////////////////////////
+
+            var loader = new THREE.TextureLoader();
+            loader.load(
+                // resource URL
+                'https://i.imgur.com/MKE4Ofw.png',
+                // Function when resource is loaded
+                function (texture) { // onLoad ...
+                    // do something with the texture
+                    // Plane with default texture coordinates [0,1]x[0,1]
+                    var texMat = new THREE.MeshBasicMaterial({
+                        map: texture,
+
+                    });
+                    texture.wrapS = THREE.RepeatWrapping;
+                    bd = new THREE.Mesh(new THREE.PlaneGeometry(window.innerWidth, window.innerHeight), texMat);
+                    texture.wrapS = THREE.RepeatWrapping;
+                    scene.add(bd);
+                },
+                undefined, // onProgress ... not implemented
+                function (xhr) { // onError
+                    console.log('An error happened');
+                }
+            );
+            loader.load(
+                // resource URL
+                'https://i.imgur.com/ZYayGmZ.png',
+                // Function when resource is loaded
+                function (textureCh) { // onLoad ...
+                    // do something with the texture
+                    // Plane with default texture coordinates [0,1]x[0,1]
+                    var texMat = new THREE.MeshBasicMaterial({
+                        map: textureCh,
+                        transparent: true,
+                        side: THREE.DoubleSide
+                    });
+                    ch = new THREE.Mesh(new THREE.PlaneGeometry(window.innerWidth / 4, -window.innerHeight / 4), texMat);
+                    scene.add(ch);
+                    ch.position.y = -window.innerHeight / 4.5;
+                    textureCh.wrapS = THREE.RepeatWrapping;
+                    textureCh.wrapT = THREE.RepeatWrapping;
+                    textureCh.repeat.set(1 / 9, 7 / 43);
+                    textureCh.offset.set(6 / 9, 28 / 43);
+                    if (textureCh.offset.x >= 6 / 9) {
+                        ch.rotation.z = Math.PI;
+                    }
+                    ch.position.z += 1;
+                },
+                undefined, // onProgress ... not implemented
+                function (xhr) { // onError
+                    console.log('An error happened');
+                }
+            );
+            setInterval(textureChAnimate, 150);
+        }
+
+        function update(dt) {
+            keyboard.update();
+            if (keyboard.pressed("left")) {
+                bdmove = -0.00001*window.innerWidth;
+                rot_y = false;
+            }
+            if (keyboard.pressed("right")) {
+                bdmove = +0.00001*window.innerWidth;
+                rot_y = true;
+            }
+            if (keyboard.pressed("up"))
+                attack = true;
+            if (keyboard.pressed("down"))
+                sleep = true;
+
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function animate() {
+            if (window.innerWidth != w) {
+                window.location.reload();
+            }
+            requestAnimationFrame(animate);
+            renderer.render(scene, camera);
+        }
+
+        function textureChAnimate() {
+            textureChAnimate.count = (textureChAnimate.count === undefined) ? 1 : textureChAnimate.count;
+            var dt = clock.getDelta();
+            update(dt);
+            if (rot_y) {
+                ch.rotation.y = Math.PI;
+            }
+            if (!rot_y) {
+                ch.rotation.y = 0;
+            }
+            var texture = ch.material.map;
+            var texturebd = bd.material.map;
+            if (ch.position.x >= 4 * window.innerWidth / 10 || ch.position.x <= -4 * window.innerWidth / 10) {
+                if (bdmove > 0 && ch.position.x <= -4 * window.innerWidth / 10) {
+                    ch.position.x += 5;
+                } else if (bdmove < 0 && ch.position.x >= 4 * window.innerWidth / 10) {
+                    ch.position.x -= 5;
+                } else if (bdmove > 0) {
+                    texturebd.offset.x += bdmove;
+                } else {
+                    texturebd.offset.x += bdmove;
+                }
+            } else if (bdmove != 0) {
+                if (bdmove > 0) {
+                    ch.position.x += 0.01*window.innerWidth;
+                } else {
+                    ch.position.x -= 0.01*window.innerWidth;
+                }
+
+            }
+            var lastY = texture.offset.y;
+            if (attack) {
+                texture.offset.y = 28 / 43;
+                if (!rot_y) {
+                    ch.rotation.y = Math.PI;
+                }
+                if (rot_y) {
+                    ch.rotation.y = 0;
+                }
+                if (lastY != texture.offset.y || (textureChAnimate.count) >= 3) {
+                    textureChAnimate.count = 0;
+                    texture.offset.x = 2 / 9;
+                }
+            } else {
+                if (bdmove > 0 || bdmove < 0) {
+                    texture.offset.y = 35 / 43;
+                    if (lastY != texture.offset.y || (textureChAnimate.count) >= 3) {
+                        textureChAnimate.count = 0;
+                        texture.offset.x = 5 / 9;
+                    }
+                } else {
+                    if (sleep) {
+                        texture.offset.y = 7 / 43;
+                        if (lastY != texture.offset.y || (textureChAnimate.count) >= 3) {
+                            textureChAnimate.count = 0;
+                            texture.offset.x = 5 / 9;
+                        }
+                    } else {
+                        texture.offset.y = 28 / 43;
+                        if ((textureChAnimate.count) >= 3) {
+                            textureChAnimate.count = 0;
+                            texture.offset.x = 5 / 9;
+                        }
+                    }
+                }
+            }
+            texture.offset.x += 1 / 9;
+            textureChAnimate.count++;
+            attack = false;
+            sleep = false;
+            bdmove = 0;
+        }
+
+
+    </script>
+</body>
+
+</html>

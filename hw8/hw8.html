@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>hw8 Keyframe 汽車爬山</title>
+</head>
+<div id="info">Keyframe 汽車爬山</div>
+<style>
+    #info {
+        position: absolute;
+        top: 0px;
+        width: 100%;
+        padding: 10px;
+        text-align: center;
+        color: #ffff00
+    }
+
+    body {
+        overflow: hidden;
+    }
+</style>
+
+<body>
+    <script type="module">
+        import * as THREE from 'https://cdn.skypack.dev/three';
+        import { OrbitControls } from 'https://cdn.skypack.dev/three@0.136/examples/jsm/controls/OrbitControls.js';
+        import { makecar } from './makeCar.js';
+        import { makeroad } from './makeRoad.js';
+
+        var camera, scene, renderer;
+        var keys;
+        var clock = new THREE.Clock();
+        var carmode, car1, car2, car3, car4, car5, car6, car7, car8;
+        var ts = clock.getElapsedTime();
+        var T = 20;
+
+        init();
+        animate();
+
+        function init() {
+
+            scene = new THREE.Scene();
+
+            renderer = new THREE.WebGLRenderer();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setClearColor(0x888888);
+            document.body.appendChild(renderer.domElement);
+
+            camera = new THREE.PerspectiveCamera(30, window.innerWidth / window.innerHeight, 1, 10000);
+            camera.position.set(800, 800, 800);
+            let controls = new OrbitControls(camera, renderer.domElement);
+
+            /////////////////////////////////////////////////////////
+
+            //road
+            var plane = new makeroad(300, 0, 200, 300, 100, -200, -300, 100, -200, -300, 0, 200);
+            var plane1 = new makeroad(300, 0, 300, 300, 0, 200, -300, 0, 200, -300, 0, 300);
+            var plane2 = new makeroad(300, 100, -200, 300, 100, -300, -300, 100, -300, -300, 100, -200);
+
+            scene.add(plane, plane1, plane2)
+
+
+            carmode = new makecar();
+            car1 = new makecar();
+            car2 = new makecar();
+            car3 = new makecar();
+            car4 = new makecar();
+            car5 = new makecar();
+            car6 = new makecar();
+            car7 = new makecar();
+            car8 = new makecar();
+
+            carmode.position.set(40, 0, 50)
+            scene.add(carmode);
+
+            ///////////////////
+            //position & rotation.y & rotation.x
+            car1.position.set(200, 0, 250); //50,0,50
+            car1.rotation.y = 0;
+            car2.position.set(250, 0, 200);
+            car2.rotation.y = Math.PI / 2;
+            car2.rotation.x = Math.atan(100 / 400);
+            car3.position.set(250, 100, -200); //50,100,-50
+            car3.rotation.y = Math.PI / 2;
+            car3.rotation.x = Math.atan(100 / 400);
+            car4.position.set(200, 100, -250);
+            car4.rotation.y = Math.PI;
+            car5.position.set(-200, 100, -250); //-50,100,-50
+            car5.rotation.y = Math.PI;
+            car6.position.set(-250, 100, -200);
+            car6.rotation.y = -Math.PI / 2;
+            car6.rotation.x = Math.atan(100 / 400);
+            car7.position.set(-250, 0, 200); //-50,0,50
+            car7.rotation.y = -Math.PI / 2;
+            car7.rotation.x = Math.atan(100 / 400);
+            car8.position.set(-200, 0, 250);
+            car8.rotation.y = 0;
+
+
+
+            keys = [
+                [0, car1], // quad1 ...
+                [0.125, car2],
+                [0.25, car3],
+                [0.375, car4],
+                [0.5, car5],
+                [0.625, car6],
+                [0.75, car7],
+                [0.875, car8],
+                [1, car1]
+            ];
+
+        }
+
+        function keyframe(t) {
+            var s = ((t - ts) % T) / T;
+
+            for (var i = 1; i < keys.length; i++) {
+                if (keys[i][0] > s) break;
+            }
+            // take i-1
+            var ii = i - 1;
+            var a = (s - keys[ii][0]) / (keys[ii + 1][0] - keys[ii][0]);
+
+            carmode.position.lerpVectors(keys[ii][1].position, keys[ii + 1][1].position, a);
+            carmode.quaternion.slerpQuaternions(keys[ii][1].quaternion, keys[ii + 1][1].quaternion, a);
+        }
+
+        function animate() {
+
+            keyframe(clock.getElapsedTime());
+
+            requestAnimationFrame(animate);
+            renderer.render(scene, camera);
+        }
+    </script>
+</body>
+
+</html>
